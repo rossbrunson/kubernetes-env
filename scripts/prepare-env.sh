@@ -974,8 +974,8 @@ if [ "$image" == "" ]; then
   else
     VERSION=$(curl -sSL https://uk.lxd.images.canonical.com/streams/v1/images.json | \
               jq ".products.\"ubuntu:$CODE_NAME:amd64:cloud\".versions | keys[]" | sort -r | head -1 | tr -d '"')
-    curl -SLO https://uk.lxd.images.canonical.com/images/ubuntu/focal/amd64/cloud/"$VERSION"/lxd.tar.xz
-    curl -SLO https://uk.lxd.images.canonical.com/images/ubuntu/focal/amd64/cloud/"$VERSION"/rootfs.squashfs
+    curl -SLO https://us.lxd.images.canonical.com/images/ubuntu/focal/amd64/cloud/"$VERSION"/lxd.tar.xz
+    curl -SLO https://us.lxd.images.canonical.com/images/ubuntu/focal/amd64/cloud/"$VERSION"/rootfs.squashfs
     lxc image import lxd.tar.xz rootfs.squashfs --alias focal-cloud
     rm lxd.tar.xz rootfs.squashfs
   fi
