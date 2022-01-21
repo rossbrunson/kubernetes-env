@@ -19,6 +19,10 @@
 
 1. Create a base VM with above specification
 2. Remember to turn off swap
+```
+    sudo swapoff -a
+    sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+```
 3. Bootup and login to your VM
 4. Create a `Projects` directory and `cd` into it
 5. `git clone https://github.com/tsanghan/kubernetes-env.git`
@@ -26,6 +30,7 @@
 7. `sudo ./prepare-vm.sh`
 8. Follow the instruction at the end of the completion of `prepare-vm.sh` script
 9. Log back into your VM
+**Note:**  The new groups you have been added to will then be in place, you can check this has happened with `id -a`.
 10. You have 2 choices to deploy a kubernetes cluster, using *LXD* or *KIND*
 11. As of v1.12.0, you now have a 3rd choice, Kubernetes on Virtualbox/Vagrant.
 
@@ -33,8 +38,8 @@
 
 11. We will explore LXD method first
 12. `cd` into `Projects/kubernetes-env/kubernetes-on-lxd`
-13. Run `prepare-lxd.sh`
-14. Wait untill script finish
+13. Run `prepare-lxd.sh` (this is located in your ~/.local directory, you won't find it in the ~/Project tree!)
+14. Wait until the script finishes
 15. `lxc launch -p k8s-cloud-init focal-cloud <your lxc node name>`
 16. Instructions below will use the node name of *lxd-ctrlp-1*
 17. Launch 2 more worker nodes with above command (example *lxd-wrker-1* and *lxd-wrker-2*)
@@ -43,13 +48,13 @@
 20. Start all nodes `lxc start --all`
 21. Run `kubeadm init` on control-plane node with the following long command
 22. `lxc exec lxd-ctrlp-1 -- kubeadm init --upload-certs | tee kubeadm-init.out`
-23. Wait till kubeadm finish initializing control-plane node
+23. Wait till kubeadm finishes initializing the control-plane node
 24. Perform `kubeadm join` command from `kubeadm init` output on 2 worker nodes. Please refer to last 2 lines of local `kubeadm-init.out` file for the full `kubeadm join` command.
 25. Pull `/etc/kubernetes/admin.conf` from within `lxd-ctrlp-1` node into your local `~/.kube` directory with the following command
 26. `lxc file pull lxd-ctrlp-1/etc/kubernetes/admin.conf ~/.kube/config` make sure you have created ~/.kube directory first
 27. Activate `kubectl` auto-completion
 28. `source ~/.bash_complete` assuming you are using bash
-29. Now you can access you cluster with `kubectl` command, alised with `k`
+29. Now you can access you cluster with `kubectl get nodes` command.  The kubectl command is aliased to `k`.
 30. `k get no`
 31. All your nodes are not ready, becasue we have yet to instal a CNI plugin
 ```
