@@ -430,7 +430,7 @@ if [ "$iface" == "" ]; then
 fi
 IP=$(ip a s "$iface" | head -3 | tail -1 | awk '{print $2}' | tr -d '/24$')
 while getopts "p" o; do
-    case "${o}" in
+    case "$o" in
         p)
             private="true"
             ;;
@@ -501,7 +501,7 @@ else
 fi
 
 while getopts "s" o; do
-    case "${o}" in
+    case "$o" in
         s)
             slim="true"
             ;;
@@ -1402,7 +1402,7 @@ cat <<'MYEOF' > ~/.local/bin/stop-cluster.sh
 #!/usr/bin/env bash
 
 while getopts "d" o; do
-    case "${o}" in
+    case "$o" in
         d)
             delete="true"
             ;;
@@ -1508,18 +1508,18 @@ images[21]='k8s.gcr.io/ingress-nginx/kube-webhook-certgen;v1.1.1'
 
 for image in "${images[@]}"
 do
-    IFS=";" read -r -a arr <<< "${image}"
+    IFS=";" read -r -a arr <<< "$image"
     site_name="${arr[0]}"
     tag="${arr[1]}"
     site=${site_name/\/*/}
     name=${site_name/*.io\/}
-    echo "site : ${site}"
-    echo "name : ${name}"
-    echo "tag  : ${tag}"
+    echo "site : $site"
+    echo "name : $name"
+    echo "tag  : $tag"
     echo
     curl -s http://"${sites[$site]}"/v2/"$name"/manifests/"$tag"?ns="$site" | jq -r '.fsLayers[].blobSum' > "${name/\//-}"-blobsums.txt
     while read -r BLOBSUM; do
-      curl -s --location http://"${sites[$site]}"/v2/"$name"/blobs/"${BLOBSUM}" > /dev/null
+      curl -s --location http://"${sites[$site]}"/v2/"$name"/blobs/"$BLOBSUM" > /dev/null
     done < "${name/\//-}"-blobsums.txt
 done
 rm ./*.txt
