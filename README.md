@@ -17,31 +17,39 @@
 | NIC       | 1                  |
 | Base OS   | Ubuntu 20.04 Focal |
 
+## Instructions:
+
+This guide is formatted so that you can copy and paste all commands directly from the guide and press ENTER to execute them in your shell.  Please note that there are a couple of steps towards the end of this guide where you will need to compose several commands from output that is exclusive to YOUR kubernetes cluster, so read the instructions on those steps carefully.<br>
+
+#### Steps
 1. Use a base VM with the above specifications.
 2. Bootup and login to your VM.
-3. Remember to turn off swap with the first command, and change the /etc/fstab file to make that change persistent with the second command:
+3. You'll be turning off swap with the first command, and changing the `/etc/fstab` file to make that change persistent with the second command:
     ```
-    $ sudo swapoff -a
-    $ sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+    sudo swapoff -a
+    ```
+    ```
+    sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
     ```
 4. Create a `Projects` directory and `cd` into it
     ```
-    $ mkdir ~/Projects ; cd ~/Projects
+    mkdir ~/Projects ; cd ~/Projects
     ```
-5. Clone (download locally) the kubernetes-env:
+5. Clone (download locally) the kubernetes-env respository:
     ```
-    $ git clone https://github.com/tsanghan/kubernetes-env.git
+    git clone https://github.com/tsanghan/kubernetes-env.git
     ```
 6. Change directory into the new `kubernetes-env` directory:
     ```
-    $ cd ~/Projects/kubernetes.env
+    cd ~/Projects/kubernetes-env
     ```
 7. Run the prepare-vm.sh script
     ```
-    $ sudo ./prepare-vm.sh
+    sudo ./prepare-vm.sh
     ```
-8. Follow the instruction at the end of the completion of `prepare-vm.sh` script
-9. Logout of your VM and then log back into your VM (to refresh your identity.)
+8. Follow the instructions at the end of the completion of `prepare-vm.sh` script
+<br><br>**Note:**   Currently there are NO instructions at the end of this script.<br><br>
+9. **Logout of your VM** and then log back into your VM (to refresh your identity.)
     <br><br>**Note:**  The new groups you have been added to will then be in place, you can check this has happened with `id -a`.<br><br>
 10. You now have 2 choices to deploy a kubernetes cluster, using *LXD* or *KIND*
     <br><br>**Note:**   As of v1.12.0, you now have a 3rd choice, Kubernetes on Virtualbox/Vagrant.<br><br>
@@ -51,30 +59,33 @@
 11. We will explore LXD method first
 12. Change directory into the kubernetes-on-lxd directory:
     ```
-    $ cd ~/Projects/kubernetes-env/kubernetes-on-lxd
+    cd ~/Projects/kubernetes-env/kubernetes-on-lxd
     ```
-13. Run the prepare-lxd.sh script:
+13. Run the `prepare-lxd.sh` script:
     ```
-    $ prepare-lxd.sh
+    prepare-lxd.sh
     ```
-    **Note:**  (This script and others are located in your ~/.local directory, you won't find them in the ~/Project tree!)<br><br>
+    **Note:**  (This script and others are located in your `~/.local` directory, you won't find them in the `~/Projects` tree!)<br><br>
 14. Wait until the script finishes.
-<br><br>**Note:**  Instructions below will use the control plane node name of **lxd-ctrlp-1**, and worker node names **lxd-cwrkr-1** and **lxd-wrkr-2**.<br><br>
+<br><br>**Note:**  The instructions below will use the control plane node name of **lxd-ctrlp-1**, and worker node names **lxd-cwrkr-1** and **lxd-wrkr-2**.<br><br>
 15. You will now initialize your control plane node
     ```
-    $ lxc launch -p k8s-cloud-init focal-cloud lxd-ctrlp-1
+    lxc launch -p k8s-cloud-init focal-cloud lxd-ctrlp-1
     ```
-16. Watch the control plane node get set up.
+16. The `lxd-ctrlp-1` instance will be created.
 17. Launch 2 worker nodes with:
     ```
-    $ lxc launch -p k8s-cloud-init focal-cloud lxd-wrkr-1
-    $ lxc launch -p k8s-cloud-init focal-cloud lxd-wrkr-2    
+    lxc launch -p k8s-cloud-init focal-cloud lxd-wrkr-1
+    ```
+    ```
+    lxc launch -p k8s-cloud-init focal-cloud lxd-wrkr-2    
     ```
 18. You can watch your nodes finish and then shut down with:
     ```
-    $ watch lxc ls
+    watch lxc ls
     ```
-19. All 3 lxc nodes should eventually power down after being prepared
+19. All 3 lxc nodes should eventually power down after being prepared, this can take several minutes.
+<br><br>**Note:**  In order to stop watching the nodes, press `Ctrl-c`.<br><br>
 20. Start all of your nodes:
     ```
     $ lxc start --all
@@ -83,31 +94,51 @@
     ```
     $ lxc exec lxd-ctrlp-1 -- kubeadm init --upload-certs | tee kubeadm-init.out
     ```
-22. Wait til kubeadm finishes initializing the control-plane node
-23. Perform a `kubeadm join` command from `kubeadm init` output on 2 worker nodes. Please refer to last 2 lines of local `kubeadm-init.out` file for the full `kubeadm join` command.
-<br>**For Example:**
-```
-lxc exec lxd-wrkr-1 -- kubeadm join 10.254.254.193:6443 --token 7rm198.7i4d8bo28itdsop8 --discovery-token-ca-cert-hash sha256:2b420fd684e8ac866b24c43eb7caee10f343284bb3d7b3df6deb1671eac642b5
-```
+22. Wait until `kubeadm` finishes initializing the control-plane node
+<br><br>**Note:**  Do NOT clear your screen at this time, you'll need the last couple of lines, starting below where it states `Then you can join any number of worker nodes....`<br>
+<br> 
+You'll be running the `kubeadm join <etc...>` command on each of your worker nodes.  This command has to be preceeded with the command to cause it to run on the worker node, which is:
+    ```
+    lxc exec <workernodename> -- (and then the kubeadm join command all the way to the end of the sha hash.)
+    ```
+23. As an example, when we created this set of steps, we ran the two commands below, using OUR HASH, and you'll need your specific hash to be successful. 
+<br><br>**Example:**<br>
+<br>**Note:**  If you need the `kubeadm join blah blah` output again, it's located in the `~/Projects/kubernetes-env/kubernetes-on-lxd/kubeadm-init.out` file, at the bottom, so maybe use `tail kubeadm-init.out` to see it easily!<br><br>
+
+    ```
+    lxc exec lxd-wrkr-1 -- kubeadm join 10.xxx.xxx.xxx:6443 --token sOm3r3@11yLoNgT@k3n --discovery-token-ca-cert-hash sha256:sOm3r3@11yr3@11yr3@11yr3@11yr3@11yr3@11yLoNgT@k3n
+    ```
+    ```
+    lxc exec lxd-wrkr-2 -- kubeadm join 10.xxx.xxx.xxx:6443 --token sOm3r3@11yLoNgT@k3n --discovery-token-ca-cert-hash sha256:sOm3r3@11yr3@11yr3@11yr3@11yr3@11yr3@11yLoNgT@k3n
+    ```
 24. Pull the `/etc/kubernetes/admin.conf` from within the **lxd-ctrlp-1** node into your local `~/.kube` directory with the following command:
     ```
-    $ mkdir ~/.kube` and then run `lxc file pull lxd-ctrlp-1/etc/kubernetes/admin.conf ~/.kube/config .
+    mkdir ~/.kube
+    ```
+    ```
+    lxc file pull lxd-ctrlp-1/etc/kubernetes/admin.conf ~/.kube/config
     ```
 25. Activate `kubectl` auto-completion with these commands:
     ```
-    $ source /usr/share/bash-completion/bash_completion
-    $ echo 'source <(kubectl completion bash)' >>~/.bashrc
-    $ tail ~/.bashrc
+    source /usr/share/bash-completion/bash_completion
+    ```
+    ```
+    echo 'source <(kubectl completion bash)' >>~/.bashrc
     ```
 26. Incorporate the contents of **bash_complete** into your current shell:
     ```
     $ source ~/.bash_complete
     ```
-27. Now you can access your cluster with `kubectl get nodes` command.  
+27. Now access your cluster with `kubectl get nodes` command.  
     <br>**Note:**  The kubectl command is aliased to `k`, so you can either abbreviate it or type it out.<br><br>
     ```
-    $ k get no      (or kubectl get nodes)
+    k get no      
     ```
+    OR
+    ```
+    kubectl get nodes
+    ```
+<br> **Expected Output**<br>
 ```
 NAME          STATUS     ROLES                  AGE     VERSION
 lxd-ctrlp-1   NotReady   control-plane,master   2m55s   v1.23.1
@@ -117,20 +148,22 @@ lxd-wrker-2   NotReady   <none>                 5s      v1.23.1
 28. All your nodes are not ready, because we have yet to install a CNI plugin.
 29. Install calico so it supports Network Policy 
     ```
-    $ k apply -f https://docs.projectcalico.org/manifests/calico.yaml
+    k apply -f https://docs.projectcalico.org/manifests/calico.yaml
     ```
-30. View your nodes again:
+30. Watch your `kubectl get nodes` output for readiness:
     ```
-    $ k get no
+    watch kubectl get nodes
     ```
-31. Wait till all nodes are ready, this could take a minute or so.
+31. Wait until all nodes are ready, this could take a minute or so.<br>
+
+**Expected Output**<br>
 ```
 NAME          STATUS   ROLES                  AGE     VERSION
 lxd-ctrlp-1   Ready    control-plane,master   5m42s   v1.23.2
 lxd-wrker-1   Ready    <none>                 3m2s    v1.23.2
 lxd-wrker-2   Ready    <none>                 2m52s   v1.23.2
 ```
-**When Ready, output will show them with Status of Ready:** <br>
+**When Ready, output will show your nodes with a Status of `Ready`:** <br>
 
 ```
 NAME          STATUS   ROLES                  AGE   VERSION
@@ -138,13 +171,14 @@ lxd-ctrlp-1   Ready    control-plane,master   19m   v1.23.2
 lxd-wrkr-1    Ready    <none>                 14m   v1.23.2
 lxd-wrkr-2    Ready    <none>                 12m   v1.23.2
 ```
+**Note:**  In order to stop watching the nodes, press `Ctrl-c`.<br><br>
 
 32. To see all your pods, type:
     ```
-    $ k get all -A
+    k get all -A
     ```
 
-**You should see something like this:** <br>
+**Expected Output:** <br>
 
 ```
 NAMESPACE     NAME                                           READY   STATUS    RESTARTS   AGE
@@ -174,9 +208,9 @@ NAMESPACE     NAME                                                 DESIRED   CUR
 kube-system   replicaset.apps/calico-kube-controllers-56b8f699d9   1         1         1       85s
 kube-system   replicaset.apps/coredns-78fcd69978                   2         2         2       6m15s
 ```
-33. Run the k-apply.sh script:
+33. Now Run the k-apply.sh script:
     ```
-    $ k-apply.sh
+    k-apply.sh
     ```
 34. When run, the following services will be installed:
 - metrics server
