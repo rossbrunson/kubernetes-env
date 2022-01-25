@@ -17,63 +17,135 @@
 | NIC       | 1                  |
 | Base OS   | Ubuntu 20.04 Focal |
 
-1. Create a base VM with above specification
-2. Remember to turn off swap
-```
-    sudo swapoff -a
-    sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
-```
-3. Bootup and login to your VM
+1. Use a base VM with the above specifications.
+2. Bootup and login to your VM.
+3. Remember to turn off swap with the first command, and change the /etc/fstab file to make that change persistent with the second command:
+    ```
+    $ sudo swapoff -a
+    $ sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+    ```
 4. Create a `Projects` directory and `cd` into it
-5. `git clone https://github.com/tsanghan/kubernetes-env.git`
-6. `cd` into `kubernetes-env`
-7. `sudo ./prepare-vm.sh`
+    ```
+    $ mkdir ~/Projects ; cd ~/Projects
+    ```
+5. Clone (download locally) the kubernetes-env:
+    ```
+    $ git clone https://github.com/tsanghan/kubernetes-env.git
+    ```
+6. Change directory into the new `kubernetes-env` directory:
+    ```
+    $ cd ~/Projects/kubernetes.env
+    ```
+7. Run the prepare-vm.sh script
+    ```
+    $ sudo ./prepare-vm.sh
+    ```
 8. Follow the instruction at the end of the completion of `prepare-vm.sh` script
-9. Log back into your VM
-**Note:**  The new groups you have been added to will then be in place, you can check this has happened with `id -a`.
-10. You have 2 choices to deploy a kubernetes cluster, using *LXD* or *KIND*
-11. As of v1.12.0, you now have a 3rd choice, Kubernetes on Virtualbox/Vagrant.
+9. Logout of your VM and then log back into your VM (to refresh your identity.)
+    <br><br>**Note:**  The new groups you have been added to will then be in place, you can check this has happened with `id -a`.<br><br>
+10. You now have 2 choices to deploy a kubernetes cluster, using *LXD* or *KIND*
+    <br><br>**Note:**   As of v1.12.0, you now have a 3rd choice, Kubernetes on Virtualbox/Vagrant.<br><br>
 
 ### Kubernetes on LXD
 
 11. We will explore LXD method first
-12. `cd` into `Projects/kubernetes-env/kubernetes-on-lxd`
-13. Run `prepare-lxd.sh` (this is located in your ~/.local directory, you won't find it in the ~/Project tree!)
-14. Wait until the script finishes
-15. `lxc launch -p k8s-cloud-init focal-cloud <your lxc node name>`
-16. Instructions below will use the node name of *lxd-ctrlp-1*
-17. Launch 2 more worker nodes with above command (example *lxd-wrker-1* and *lxd-wrker-2*)
-18. `watch lxc ls`
-19. All 3 lxc nodes will power down after being prepared
-20. Start all nodes `lxc start --all`
-21. Run `kubeadm init` on control-plane node with the following long command
-22. `lxc exec lxd-ctrlp-1 -- kubeadm init --upload-certs | tee kubeadm-init.out`
-23. Wait till kubeadm finishes initializing the control-plane node
-24. Perform `kubeadm join` command from `kubeadm init` output on 2 worker nodes. Please refer to last 2 lines of local `kubeadm-init.out` file for the full `kubeadm join` command.
-25. Pull `/etc/kubernetes/admin.conf` from within `lxd-ctrlp-1` node into your local `~/.kube` directory with the following command
-26. `lxc file pull lxd-ctrlp-1/etc/kubernetes/admin.conf ~/.kube/config` make sure you have created ~/.kube directory first
-27. Activate `kubectl` auto-completion
-28. `source ~/.bash_complete` assuming you are using bash
-29. Now you can access you cluster with `kubectl get nodes` command.  The kubectl command is aliased to `k`.
-30. `k get no`
-31. All your nodes are not ready, becasue we have yet to instal a CNI plugin
+12. Change directory into the kubernetes-on-lxd directory:
+    ```
+    $ cd ~/Projects/kubernetes-env/kubernetes-on-lxd
+    ```
+13. Run the prepare-lxd.sh script:
+    ```
+    $ prepare-lxd.sh
+    ```
+    **Note:**  (This script and others are located in your ~/.local directory, you won't find them in the ~/Project tree!)<br><br>
+14. Wait until the script finishes.
+<br><br>**Note:**  Instructions below will use the control plane node name of **lxd-ctrlp-1**, and worker node names **lxd-cwrkr-1** and **lxd-wrkr-2**.<br><br>
+15. You will now initialize your control plane node
+    ```
+    $ lxc launch -p k8s-cloud-init focal-cloud lxd-ctrlp-1
+    ```
+16. Watch the control plane node get set up.
+17. Launch 2 worker nodes with:
+    ```
+    $ lxc launch -p k8s-cloud-init focal-cloud lxd-wrkr-1
+    $ lxc launch -p k8s-cloud-init focal-cloud lxd-wrkr-2    
+    ```
+18. You can watch your nodes finish and then shut down with:
+    ```
+    $ watch lxc ls
+    ```
+19. All 3 lxc nodes should eventually power down after being prepared
+20. Start all of your nodes:
+    ```
+    $ lxc start --all
+    ```
+21. Run `kubeadm init` on the control-plane node with the following command:
+    ```
+    $ lxc exec lxd-ctrlp-1 -- kubeadm init --upload-certs | tee kubeadm-init.out
+    ```
+22. Wait til kubeadm finishes initializing the control-plane node
+23. Perform a `kubeadm join` command from `kubeadm init` output on 2 worker nodes. Please refer to last 2 lines of local `kubeadm-init.out` file for the full `kubeadm join` command.
+<br>**For Example:**
+```
+lxc exec lxd-wrkr-1 -- kubeadm join 10.254.254.193:6443 --token 7rm198.7i4d8bo28itdsop8 --discovery-token-ca-cert-hash sha256:2b420fd684e8ac866b24c43eb7caee10f343284bb3d7b3df6deb1671eac642b5
+```
+24. Pull the `/etc/kubernetes/admin.conf` from within the **lxd-ctrlp-1** node into your local `~/.kube` directory with the following command:
+    ```
+    $ mkdir ~/.kube` and then run `lxc file pull lxd-ctrlp-1/etc/kubernetes/admin.conf ~/.kube/config .
+    ```
+25. Activate `kubectl` auto-completion with these commands:
+    ```
+    $ source /usr/share/bash-completion/bash_completion
+    $ echo 'source <(kubectl completion bash)' >>~/.bashrc
+    $ tail ~/.bashrc
+    ```
+26. Incorporate the contents of **bash_complete** into your current shell:
+    ```
+    $ source ~/.bash_complete
+    ```
+27. Now you can access your cluster with `kubectl get nodes` command.  
+    <br>**Note:**  The kubectl command is aliased to `k`, so you can either abbreviate it or type it out.<br><br>
+    ```
+    $ k get no      (or kubectl get nodes)
+    ```
 ```
 NAME          STATUS     ROLES                  AGE     VERSION
 lxd-ctrlp-1   NotReady   control-plane,master   2m55s   v1.23.1
 lxd-wrker-1   NotReady   <none>                 15s     v1.23.1
 lxd-wrker-2   NotReady   <none>                 5s      v1.23.1
 ```
-32. Install calico as it support Network Policy
-33. `k apply -f https://docs.projectcalico.org/manifests/calico.yaml`
-34. `k get no` again
-35. Wait till all nodes are ready
+28. All your nodes are not ready, because we have yet to install a CNI plugin.
+29. Install calico so it supports Network Policy 
+    ```
+    $ k apply -f https://docs.projectcalico.org/manifests/calico.yaml
+    ```
+30. View your nodes again:
+    ```
+    $ k get no
+    ```
+31. Wait till all nodes are ready, this could take a minute or so.
 ```
 NAME          STATUS   ROLES                  AGE     VERSION
-lxd-ctrlp-1   Ready    control-plane,master   5m42s   v1.23.1
-lxd-wrker-1   Ready    <none>                 3m2s    v1.23.1
-lxd-wrker-2   Ready    <none>                 2m52s   v1.23.1
+lxd-ctrlp-1   Ready    control-plane,master   5m42s   v1.23.2
+lxd-wrker-1   Ready    <none>                 3m2s    v1.23.2
+lxd-wrker-2   Ready    <none>                 2m52s   v1.23.2
 ```
-36. Type `k get all -A` to see all pods
+**When Ready, output will show them with Status of Ready:** <br>
+
+```
+NAME          STATUS   ROLES                  AGE   VERSION
+lxd-ctrlp-1   Ready    control-plane,master   19m   v1.23.2
+lxd-wrkr-1    Ready    <none>                 14m   v1.23.2
+lxd-wrkr-2    Ready    <none>                 12m   v1.23.2
+```
+
+32. To see all your pods, type:
+    ```
+    $ k get all -A
+    ```
+
+**You should see something like this:** <br>
+
 ```
 NAMESPACE     NAME                                           READY   STATUS    RESTARTS   AGE
 kube-system   pod/calico-kube-controllers-56b8f699d9-vwvvc   1/1     Running   0          85s
@@ -89,31 +161,29 @@ kube-system   pod/kube-proxy-5mthj                           1/1     Running   0
 kube-system   pod/kube-proxy-999t4                           1/1     Running   0          3m32s
 kube-system   pod/kube-proxy-lwb4r                           1/1     Running   0          6m15s
 kube-system   pod/kube-scheduler-lxd-ctrlp-1                 1/1     Running   0          6m15s
-
 NAMESPACE     NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                  AGE
 default       service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP                  6m22s
 kube-system   service/kube-dns     ClusterIP   10.96.0.10   <none>        53/UDP,53/TCP,9153/TCP   6m20s
-
 NAMESPACE     NAME                         DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR            AGE
 kube-system   daemonset.apps/calico-node   3         3         3       3            3           kubernetes.io/os=linux   85s
 kube-system   daemonset.apps/kube-proxy    3         3         3       3            3           kubernetes.io/os=linux   6m20s
-
 NAMESPACE     NAME                                      READY   UP-TO-DATE   AVAILABLE   AGE
 kube-system   deployment.apps/calico-kube-controllers   1/1     1            1           85s
 kube-system   deployment.apps/coredns                   2/2     2            2           6m20s
-
 NAMESPACE     NAME                                                 DESIRED   CURRENT   READY   AGE
 kube-system   replicaset.apps/calico-kube-controllers-56b8f699d9   1         1         1       85s
 kube-system   replicaset.apps/coredns-78fcd69978                   2         2         2       6m15s
 ```
-37. Run `k-apply.sh`
-38. If you run it, the following services will be installed
+33. Run the k-apply.sh script:
+    ```
+    $ k-apply.sh
+    ```
+34. When run, the following services will be installed:
+- metrics server
+- local path provisioner
+- NGINX ingress controller
+- metallb
 ```
-metrics server
-local path provisioner
-NGINX ingress controller
-metallb
-
 NAMESPACE       NAME                                 TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)                      AGE
 default         kubernetes                           ClusterIP      10.96.0.1        <none>           443/TCP                      23m
 default         svc-deploy-nginx                     LoadBalancer   10.104.3.132     10.127.202.241   80:31880/TCP                 3m41s
@@ -122,10 +192,13 @@ ingress-nginx   ingress-nginx-controller-admission   ClusterIP      10.110.81.97
 kube-system     kube-dns                             ClusterIP      10.96.0.10       <none>           53/UDP,53/TCP,9153/TCP       23m
 kube-system     metrics-server                       ClusterIP      10.107.154.234   <none>           443/TCP                      13m
 ```
-39. There is also a `ingress.yaml` manifest that will deploy an `ingressClass` and a *ingress resource*
-40. However, a `Deployment` and a `Service` is missing, waiting to be create.
-41. Explore and enjoy the *1x Control-Plane, 2x Workers* Kubernetes cluster
-42. Check the memory usage with `htop`
+35. There is also a `ingress.yaml` manifest that will deploy an `ingressClass` and a *ingress resource*
+36. However, a `Deployment` and a `Service` is missing, waiting to be created.
+47. Explore and enjoy the *1x Control-Plane, 2x Workers* Kubernetes cluster
+38. Check the memory usage with:
+    ```
+    $ htop
+    ```
 
 ### Kubernetes with KIND
 
