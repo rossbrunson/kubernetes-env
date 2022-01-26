@@ -50,7 +50,7 @@ This guide is formatted so that you can copy and paste all commands directly fro
 8. Follow the instructions at the end of the completion of `prepare-vm.sh` script
 <br><br>**Note:**   Currently there are NO instructions at the end of this script.<br><br>
 9. **Logout of your VM** and then log back into your VM (to refresh your identity.)
-    <br><br>**Note:**  The new groups you have been added to will then be in place, you can check this has happened with `id -a`.<br><br>
+    <br><br>**Note:**  Your new membership in the right groups will then be in place, you can check this has happened with `id -a`.<br><br>
 10. You now have 2 choices to deploy a kubernetes cluster, using *LXD* or *KIND*
     <br><br>**Note:**   As of v1.12.0, you now have a 3rd choice, Kubernetes on Virtualbox/Vagrant.<br><br>
 
@@ -67,7 +67,7 @@ This guide is formatted so that you can copy and paste all commands directly fro
     ```
     **Note:**  (This script and others are located in your `~/.local` directory, you won't find them in the `~/Projects` tree!)<br><br>
 14. Wait until the script finishes.
-<br><br>**Note:**  The instructions below will use the control plane node name of **lxd-ctrlp-1**, and worker node names **lxd-cwrkr-1** and **lxd-wrkr-2**.<br><br>
+<br><br>**Note:**  The instructions below will use the control plane node name of **lxd-ctrlp-1**, and worker node names **lxd-wrkr-1** and **lxd-wrkr-2**.<br><br>
 15. You will now initialize your control plane node
     ```
     lxc launch -p k8s-cloud-init focal-cloud lxd-ctrlp-1
@@ -84,26 +84,32 @@ This guide is formatted so that you can copy and paste all commands directly fro
     ```
     watch lxc ls
     ```
-19. All 3 lxc nodes should eventually power down after being prepared, this can take several minutes.
+19. **All 3 lxc nodes should eventually power down after being prepared**, this can take several minutes.
 <br><br>**Note:**  In order to stop watching the nodes, press `Ctrl-c`.<br><br>
 20. Start all of your nodes:
     ```
     $ lxc start --all
     ```
+<br>**Note:**  If you want to see your nodes running, type `kubectl get nodes`.<br>
+<br> 
+
 21. Run `kubeadm init` on the control-plane node with the following command:
     ```
     $ lxc exec lxd-ctrlp-1 -- kubeadm init --upload-certs | tee kubeadm-init.out
     ```
+
 22. Wait until `kubeadm` finishes initializing the control-plane node
-<br><br>**Note:**  Do NOT clear your screen at this time, you'll need the last couple of lines, starting below where it states `Then you can join any number of worker nodes....`<br>
-<br> 
-You'll be running the `kubeadm join <etc...>` command on each of your worker nodes.  This command has to be preceeded with the command to cause it to run on the worker node, which is:
+
+23. As an example, when we created this set of steps, we ran the two commands below, using **OUR HASH**, and you'll need your specific hash to be successful. 
+
+**Note:** You'll be running the `kubeadm join <etc...>` command on each of your worker nodes.  This command has to be preceeded with the command to cause it to run on the worker node, which is:
     ```
     lxc exec <workernodename> -- (and then the kubeadm join command all the way to the end of the sha hash.)
     ```
-23. As an example, when we created this set of steps, we ran the two commands below, using OUR HASH, and you'll need your specific hash to be successful. 
+
 <br><br>**Example:**<br>
 <br>**Note:**  If you need the `kubeadm join blah blah` output again, it's located in the `~/Projects/kubernetes-env/kubernetes-on-lxd/kubeadm-init.out` file, at the bottom, so maybe use `tail kubeadm-init.out` to see it easily!<br><br>
+
 
     ```
     lxc exec lxd-wrkr-1 -- kubeadm join 10.xxx.xxx.xxx:6443 --token sOm3r3@11yLoNgT@k3n --discovery-token-ca-cert-hash sha256:sOm3r3@11yr3@11yr3@11yr3@11yr3@11yr3@11yLoNgT@k3n
@@ -156,12 +162,12 @@ lxd-wrker-2   NotReady   <none>                 5s      v1.23.1
     ```
 31. Wait until all nodes are ready, this could take a minute or so.<br>
 
-**Expected Output**<br>
+**Expected Output Before Ready**<br>
 ```
 NAME          STATUS   ROLES                  AGE     VERSION
-lxd-ctrlp-1   Ready    control-plane,master   5m42s   v1.23.2
-lxd-wrker-1   Ready    <none>                 3m2s    v1.23.2
-lxd-wrker-2   Ready    <none>                 2m52s   v1.23.2
+lxd-ctrlp-1   NotReady    control-plane,master   5m42s   v1.23.2
+lxd-wrker-1   NotReady    <none>                 3m2s    v1.23.2
+lxd-wrker-2   NotReady    <none>                 2m52s   v1.23.2
 ```
 **When Ready, output will show your nodes with a Status of `Ready`:** <br>
 
@@ -208,7 +214,7 @@ NAMESPACE     NAME                                                 DESIRED   CUR
 kube-system   replicaset.apps/calico-kube-controllers-56b8f699d9   1         1         1       85s
 kube-system   replicaset.apps/coredns-78fcd69978                   2         2         2       6m15s
 ```
-33. Now Run the k-apply.sh script:
+33. Now Run the `k-apply.sh` script:
     ```
     k-apply.sh
     ```
@@ -217,6 +223,9 @@ kube-system   replicaset.apps/coredns-78fcd69978                   2         2  
 - local path provisioner
 - NGINX ingress controller
 - metallb
+<br><br>
+**Expected Output:** <br>
+
 ```
 NAMESPACE       NAME                                 TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)                      AGE
 default         kubernetes                           ClusterIP      10.96.0.1        <none>           443/TCP                      23m
@@ -228,8 +237,9 @@ kube-system     metrics-server                       ClusterIP      10.107.154.2
 ```
 35. There is also a `ingress.yaml` manifest that will deploy an `ingressClass` and a *ingress resource*
 36. However, a `Deployment` and a `Service` is missing, waiting to be created.
-47. Explore and enjoy the *1x Control-Plane, 2x Workers* Kubernetes cluster
-38. Check the memory usage with:
+
+### Explore and enjoy the *1x Control-Plane, 2x Workers* Kubernetes cluster
+37. Check the memory usage with:
     ```
     $ htop
     ```
