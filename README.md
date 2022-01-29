@@ -76,16 +76,18 @@ uid=1000(ubuntu) gid=1000(ubuntu) groups=1000(ubuntu),4(adm),20(dialout),24(cdro
     ```
     cd ~/Projects/kubernetes-env/kubernetes-on-lxd
     ```
-13. Run the `prepare-lxd.sh` script:
+13. Run the `prepare-lxd.sh` script, ignoring any errors about `eth0 not found`.
     ```
     ./prepare-lxd.sh
     ```
-**Note:**  This script and others are located in your `~/.local` directory, you won't find them in the `~/Projects` tree!<br><br>
+**Note:**  This script and others are located in your `~/.local` directory, you won't find them in the `~/Projects` tree! You can run `ls ~/.local` to see these scripts.<br><br> 
 
 14. Wait until the script finishes.
+<br>
 
-**Note:**  Do **NOT** at this time run the suggested `lxc launch distro:version` command. 
-<br><br>
+**WARNING:**  Do **NOT** at this time run the suggested `lxc launch distro:version` command. 
+<br>
+<br>
 ## Initializing your cluster nodes
 
 First, you should understand that the `lxc` command is your key to sending commands to the LXD container, which holds the nodes you just created.  The `lxc` command "drop ships" or delivers commands into the LXD container, (and even into nodes!), instead of running those commands on your host system's command line.
@@ -150,13 +152,19 @@ This example would execute the `kubeadm somecmd` command on `node1`, causing an 
 <br>
 
 23. Now it's time to put the two commands together and join both of your worker nodes to the cluster. 
-<br><br>**Example:**  Put your commands together similar to this example and execute them as one long command.  The **ONLY** difference between the two commands should be the 1 and 2 in the worker node names.  We recommend you do this in an editor and then copy and paste it into your terminal to execute.<br><br>
-    ```
-    lxc exec lxd-wrkr-1 -- kubeadm join 10.xxx.xxx.xxx:6443 --token sOm3r3@11yLoNgT@k3n --discovery-token-ca-cert-hash sha256:sOm3r3@11yr3@11yr3@11yr3@11yr3@11yr3@11yLoNgT@k3n
-    ```
-    ```
-    lxc exec lxd-wrkr-2 -- kubeadm join 10.xxx.xxx.xxx:6443 --token sOm3r3@11yLoNgT@k3n --discovery-token-ca-cert-hash sha256:sOm3r3@11yr3@11yr3@11yr3@11yr3@11yr3@11yLoNgT@k3n
-    ```
+<br><br>
+
+**Example:**  Put **your** commands together similar to the examples below and execute them as one long command.  The **only** difference between the two commands should be the `1` and `2` in the worker node names.  We recommend you do this in an editor and then copy and paste it into your terminal to execute.<br><br>
+
+**NOTE**  You do **not** need to use the `sudo` command, it will cause errors.
+<br>
+
+<pre>
+lxc exec lxd-wrkr-1 -- kubeadm join 10.xxx.xxx.xxx:6443 --token sOm3r3@11yLoNgT@k3n --discovery-token-ca-cert-hash sha256:sOm3r3@11yr3@11yr3@11yr3@11yr3@11yr3@11yLoNgT@k3n
+</pre>
+<pre>
+lxc exec lxd-wrkr-2 -- kubeadm join 10.xxx.xxx.xxx:6443 --token sOm3r3@11yLoNgT@k3n --discovery-token-ca-cert-hash sha256:sOm3r3@11yr3@11yr3@11yr3@11yr3@11yr3@11yLoNgT@k3n
+</pre>
 
 <br>
 
@@ -208,7 +216,10 @@ This error is caused by the right configuration files not being present on the l
     ```
     kubectl get nodes
     ```
-<br> **Expected Output**<br>
+<br>
+
+**Expected Output (Look for `NotReady`)**<br>
+
 <pre>
 NAME          STATUS     ROLES                  AGE     VERSION
 lxd-ctrlp-1   <b>NotReady</b>   control-plane,master   2m55s   v1.23.2
@@ -218,7 +229,7 @@ lxd-wrker-2   <b>NotReady</b>   <none>                 5s      v1.23.2
 
 ## Install the Calico Container Network Interface Plugins
 28. All your nodes are not ready, because we have yet to install a CNI plugin.
-29. Install calico so it supports Network Policy 
+29. Install `Calico` so it supports Network Policy 
     ```
     k apply -f https://docs.projectcalico.org/manifests/calico.yaml
     ```
@@ -228,14 +239,7 @@ lxd-wrker-2   <b>NotReady</b>   <none>                 5s      v1.23.2
     ```
 31. Wait until all nodes are ready, this could take a minute or so.<br>
 
-**Expected Output Before Ready**<br>
-<pre>
-NAME          STATUS     ROLES                  AGE     VERSION
-lxd-ctrlp-1   <b>NotReady</b>   control-plane,master   2m55s   v1.23.2
-lxd-wrker-1   <b>NotReady</b>   < none >               15s     v1.23.2
-lxd-wrker-2   <b>NotReady</b>   < none >               5s      v1.23.2
-</pre>
-**When Ready, output will show your nodes with a Status of `Ready`:** <br>
+**Expected Output (Look for `Ready`):** <br>
 
 <pre>
 NAME          STATUS     ROLES                  AGE     VERSION
