@@ -21,21 +21,23 @@
 
 This guide is formatted so that you can copy and paste all commands directly from the guide and press ENTER to execute them in your shell.  Please note that there are a couple of steps towards the end of this guide where you will need to compose several commands from output that is exclusive to YOUR kubernetes cluster, so read the instructions on those steps carefully.<br>
 
-#### Steps
+## Preparing your System
+<br>
+
 1. Use a base VM with the above specifications.
 2. Bootup and login to your VM.
-3. You'll be turning off swap with the first command, and changing the `/etc/fstab` file to make that change persistent with the second command:
+3. You'll be turning off your systems's use of swap with the first command, and then ensure it's off for future startups by changing the `/etc/fstab` file:
     ```
     sudo swapoff -a
     ```
     ```
     sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
     ```
-4. Create a `Projects` directory and `cd` into it
+4. Create a `Projects` directory in your home directory and `cd` into it
     ```
     mkdir ~/Projects ; cd ~/Projects
     ```
-5. Clone (download locally) the kubernetes-env respository:
+5. Clone (download locally) the `kubernetes-env` respository:
     ```
     git clone https://github.com/tsanghan/kubernetes-env.git
     ```
@@ -43,32 +45,58 @@ This guide is formatted so that you can copy and paste all commands directly fro
     ```
     cd ~/Projects/kubernetes-env
     ```
-7. Run the prepare-vm.sh script
+7. Run the `prepare-vm.sh` script
     ```
     sudo ./prepare-vm.sh
     ```
-8. Follow the instructions at the end of the completion of `prepare-vm.sh` script
-<br><br>**Note:**   Currently there are NO instructions at the end of this script.<br><br>
-9. **Logout of your VM** and then log back into your VM (to refresh your identity.)
-    <br><br>**Note:**  Your new membership in the right groups will then be in place, you can check this has happened with `id -a`.<br><br>
-10. You now have 2 choices to deploy a kubernetes cluster, using *LXD* or *KIND*
-    <br><br>**Note:**   As of v1.12.0, you now have a 3rd choice, Kubernetes on Virtualbox/Vagrant.<br><br>
+8. Inspect (and write to an output file) your group membership using the `id` command.
+    ```
+    id -a | tee currentid-a.out
+    ```
+<br>**Note:**  Your current identity configuration will be shown and also written to `currentid-a.out` file in case you want to see the previous `id` command output.<br><br>
 
-### Kubernetes on LXD
+9. **Logout of your VM** and then log back into your VM, then run the `id` command again to see what has changed.
+    ```
+    id -a | grep 'lxd\|docker' 
+    ```
+<br> **Expected Output**<br>
+
+<pre>
+uid=1000(ubuntu) gid=1000(ubuntu) groups=1000(ubuntu),4(adm),20(dialout),24(cdrom),25(floppy),27(sudo),29(audio),30(dip),44(video),46(plugdev),117(netdev),118(<b>lxd</b>),998(<b>docker</b>)
+</pre>
+
+<br>**Note:**  You should see that new groups have been added, such as the `lxd` and `docker` group membership shown in **bold** in the output above.<br><br>
+
+10. You now have 2 choices to deploy a kubernetes cluster, using **LXD** or **KIND**.  As of v1.12.0, you now have a 3rd choice, **Kubernetes on Virtualbox/Vagrant**.<br><br>
+
+## Kubernetes on LXD
 
 11. We will explore LXD method first
-12. Change directory into the kubernetes-on-lxd directory:
+12. Change directory into the `kubernetes-on-lxd` directory:
     ```
     cd ~/Projects/kubernetes-env/kubernetes-on-lxd
     ```
 13. Run the `prepare-lxd.sh` script:
     ```
-    prepare-lxd.sh
+    ./prepare-lxd.sh
     ```
-    **Note:**  (This script and others are located in your `~/.local` directory, you won't find them in the `~/Projects` tree!)<br><br>
+**Note:**  This script and others are located in your `~/.local` directory, you won't find them in the `~/Projects` tree!<br><br>
+
 14. Wait until the script finishes.
-<br><br>**Note:**  The instructions below will use the control plane node name of **lxd-ctrlp-1**, and worker node names **lxd-wrkr-1** and **lxd-wrkr-2**.<br><br>
-15. You will now initialize your control plane node
+
+**Note:**  Do **NOT** at this time run the suggested `lxc launch distro:version` command. 
+<br><br>
+## Initializing your cluster nodes
+
+First, you should understand that the `lxc` command is your key to sending commands to the LXD container, which holds the nodes you just created.  The `lxc` command "drop ships" or delivers commands into the LXD container, (and even into nodes!), instead of running those commands on your host system's command line.
+
+In this section, You will use the `lxc` command to send commands to your container, aka `lxc launch`, `lxc ls` and `lxc start`, all of which are executed at the __container__ level.
+
+The instructions below will create the control plane node named **lxd-ctrlp-1**, and 2 worker nodes named **lxd-wrkr-1** and **lxd-wrkr-2**.  They will not be a functional cluster yet, just a set of nodes.
+
+**NOTE:**  <br><br>
+
+15. Initialize your control plane node
     ```
     lxc launch -p k8s-cloud-init focal-cloud lxd-ctrlp-1
     ```
@@ -85,38 +113,62 @@ This guide is formatted so that you can copy and paste all commands directly fro
     watch lxc ls
     ```
 19. **All 3 lxc nodes should eventually power down after being prepared**, this can take several minutes.
-<br><br>**Note:**  In order to stop watching the nodes, press `Ctrl-c`.<br><br>
+<br><br>**Note:**  When all nodes are shut down, press `Ctrl-c` to exit the `watch` command.<br><br>
 20. Start all of your nodes:
     ```
-    $ lxc start --all
+    lxc start --all
     ```
-<br>**Note:**  If you want to see your nodes running, type `kubectl get nodes`.<br>
-<br> 
+<br>**Note:**  If you want to see if your nodes are running, type `watch lxc ls` again.<br>
+<br>
+## Initializing the Control Plane Node
+<br>
+In this section, you'll be doing a complex set of inter-related tasks that will end up with your worker nodes properly joined into the cluster you have created with the control plane.
 
-21. Run `kubeadm init` on the control-plane node with the following command:
-    ```
-    $ lxc exec lxd-ctrlp-1 -- kubeadm init --upload-certs | tee kubeadm-init.out
-    ```
+<br>First, you will run a `kubeadm init...` command on the control plane node to generate the certificates and keys needed to allow the worker nodes to join the cluster.  Then you'll run a particular `kubeadm join...` command on **each** of the worker nodes which will join them to the cluster.
 
-22. Wait until `kubeadm` finishes initializing the control-plane node
+To run commands on any of the nodes, you'll preface them with the `lxc exec <nodename> --` string, so the actual `kubeadm` commands will execute **inside** the `<nodename>`, not on your host command line!
 
-23. As an example, when we created this set of steps, we ran the two commands below, using **OUR HASH**, and you'll need your specific hash to be successful. 
+**Example:**<br>
+    
+    lxc exec node1 -- kubeadm somecmd --someoption
+    
+This example would execute the `kubeadm somecmd` command on `node1`, causing an action on that node only.
+<br><br>
+## Build the Control Plane Node
+<br>
 
-**Note:** You'll be running the `kubeadm join <etc...>` command on each of your worker nodes.  This command has to be preceeded with the command to cause it to run on the worker node, which is:
-    ```
-    lxc exec <workernodename> -- (and then the kubeadm join command all the way to the end of the sha hash.)
-    ```
+21. First, run `kubeadm init` on the control-plane node with the following command:
+   ```
+   lxc exec lxd-ctrlp-1 -- kubeadm init --upload-certs | tee kubeadm-init.out
+   ```
 
-<br><br>**Example:**<br>
-<br>**Note:**  If you need the `kubeadm join blah blah` output again, it's located in the `~/Projects/kubernetes-env/kubernetes-on-lxd/kubeadm-init.out` file, at the bottom, so maybe use `tail kubeadm-init.out` to see it easily!<br><br>
+22. Wait until `kubeadm` finishes initializing the control-plane node, and **TAKE NOTE** of the last couple of lines of output that begin with `kubeadm join 10.xxx.xxx.xxx`.  
 
+**NOTE:** This is the command that you will copy and paste after `lxc exec <nodename> --` to build the join command that must be run on each of your worker nodes to join them to the cluster.  Your cluster's unique `kubadm init...` output is written to the `./kubeadm-init.out` file, which you can view if you need that `kubeadm join...` command again!
+<br><br>
+## Join the worker nodes to the Cluster
+<br>
 
+23. Now it's time to put the two commands together and join both of your worker nodes to the cluster. 
+<br><br>**Example:**  Put your commands together similar to this example and execute them as one long command.  The **ONLY** difference between the two commands should be the 1 and 2 in the worker node names.  We recommend you do this in an editor and then copy and paste it into your terminal to execute.<br><br>
     ```
     lxc exec lxd-wrkr-1 -- kubeadm join 10.xxx.xxx.xxx:6443 --token sOm3r3@11yLoNgT@k3n --discovery-token-ca-cert-hash sha256:sOm3r3@11yr3@11yr3@11yr3@11yr3@11yr3@11yLoNgT@k3n
     ```
     ```
     lxc exec lxd-wrkr-2 -- kubeadm join 10.xxx.xxx.xxx:6443 --token sOm3r3@11yLoNgT@k3n --discovery-token-ca-cert-hash sha256:sOm3r3@11yr3@11yr3@11yr3@11yr3@11yr3@11yLoNgT@k3n
     ```
+
+<br>
+
+## Setup your Host to Execute `kube*` commands
+<br>
+
+**WARNING:** If you run `kubectl get nodes` or other `kube*` commands at this point, you will almost certainly get the message below:
+<pre>
+The connection to the server localhost:8080 was refused - did you specify the right host or port?
+</pre>
+This error is caused by the right configuration files not being present on the local host, which this next section addresses.
+
 24. Pull the `/etc/kubernetes/admin.conf` from within the **lxd-ctrlp-1** node into your local `~/.kube` directory with the following command:
     ```
     mkdir ~/.kube
@@ -124,6 +176,12 @@ This guide is formatted so that you can copy and paste all commands directly fro
     ```
     lxc file pull lxd-ctrlp-1/etc/kubernetes/admin.conf ~/.kube/config
     ```
+
+<br>
+
+## Configure `kubectl` autocompletion
+<br>
+
 25. Activate `kubectl` auto-completion with these commands:
     ```
     source /usr/share/bash-completion/bash_completion
@@ -133,10 +191,16 @@ This guide is formatted so that you can copy and paste all commands directly fro
     ```
 26. Incorporate the contents of **bash_complete** into your current shell:
     ```
-    $ source ~/.bash_complete
+    source ~/.bash_complete
     ```
-27. Now access your cluster with `kubectl get nodes` command.  
-    <br>**Note:**  The kubectl command is aliased to `k`, so you can either abbreviate it or type it out.<br><br>
+<br>
+
+## NOW Verify Your Cluster Configuration
+
+<br>
+
+27. Now access your cluster with either the actual `kubectl get nodes` command, or use the aliased `k get no` short command.
+
     ```
     k get no      
     ```
@@ -145,12 +209,14 @@ This guide is formatted so that you can copy and paste all commands directly fro
     kubectl get nodes
     ```
 <br> **Expected Output**<br>
-```
+<pre>
 NAME          STATUS     ROLES                  AGE     VERSION
-lxd-ctrlp-1   NotReady   control-plane,master   2m55s   v1.23.1
-lxd-wrker-1   NotReady   <none>                 15s     v1.23.1
-lxd-wrker-2   NotReady   <none>                 5s      v1.23.1
-```
+lxd-ctrlp-1   <b>NotReady</b>   control-plane,master   2m55s   v1.23.2
+lxd-wrker-1   <b>NotReady</b>   <none>                 15s     v1.23.2
+lxd-wrker-2   <b>NotReady</b>   <none>                 5s      v1.23.2
+</pre>
+
+## Install the Calico Container Network Interface Plugins
 28. All your nodes are not ready, because we have yet to install a CNI plugin.
 29. Install calico so it supports Network Policy 
     ```
@@ -163,20 +229,20 @@ lxd-wrker-2   NotReady   <none>                 5s      v1.23.1
 31. Wait until all nodes are ready, this could take a minute or so.<br>
 
 **Expected Output Before Ready**<br>
-```
-NAME          STATUS   ROLES                  AGE     VERSION
-lxd-ctrlp-1   NotReady    control-plane,master   5m42s   v1.23.2
-lxd-wrker-1   NotReady    <none>                 3m2s    v1.23.2
-lxd-wrker-2   NotReady    <none>                 2m52s   v1.23.2
-```
+<pre>
+NAME          STATUS     ROLES                  AGE     VERSION
+lxd-ctrlp-1   <b>NotReady</b>   control-plane,master   2m55s   v1.23.2
+lxd-wrker-1   <b>NotReady</b>   < none >               15s     v1.23.2
+lxd-wrker-2   <b>NotReady</b>   < none >               5s      v1.23.2
+</pre>
 **When Ready, output will show your nodes with a Status of `Ready`:** <br>
 
-```
-NAME          STATUS   ROLES                  AGE   VERSION
-lxd-ctrlp-1   Ready    control-plane,master   19m   v1.23.2
-lxd-wrkr-1    Ready    <none>                 14m   v1.23.2
-lxd-wrkr-2    Ready    <none>                 12m   v1.23.2
-```
+<pre>
+NAME          STATUS     ROLES                  AGE     VERSION
+lxd-ctrlp-1   <b>Ready</b>   control-plane,master   2m55s   v1.23.2
+lxd-wrker-1   <b>Ready</b>   < none >               15s     v1.23.2
+lxd-wrker-2   <b>Ready</b>   < none >               5s      v1.23.2
+</pre>
 **Note:**  In order to stop watching the nodes, press `Ctrl-c`.<br><br>
 
 32. To see all your pods, type:
@@ -186,7 +252,7 @@ lxd-wrkr-2    Ready    <none>                 12m   v1.23.2
 
 **Expected Output:** <br>
 
-```
+<pre>
 NAMESPACE     NAME                                           READY   STATUS    RESTARTS   AGE
 kube-system   pod/calico-kube-controllers-56b8f699d9-vwvvc   1/1     Running   0          85s
 kube-system   pod/calico-node-4nvzn                          1/1     Running   0          85s
@@ -213,7 +279,7 @@ kube-system   deployment.apps/coredns                   2/2     2            2  
 NAMESPACE     NAME                                                 DESIRED   CURRENT   READY   AGE
 kube-system   replicaset.apps/calico-kube-controllers-56b8f699d9   1         1         1       85s
 kube-system   replicaset.apps/coredns-78fcd69978                   2         2         2       6m15s
-```
+</pre>
 33. Now Run the `k-apply.sh` script:
     ```
     k-apply.sh
@@ -226,7 +292,7 @@ kube-system   replicaset.apps/coredns-78fcd69978                   2         2  
 <br><br>
 **Expected Output:** <br>
 
-```
+<pre>
 NAMESPACE       NAME                                 TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)                      AGE
 default         kubernetes                           ClusterIP      10.96.0.1        <none>           443/TCP                      23m
 default         svc-deploy-nginx                     LoadBalancer   10.104.3.132     10.127.202.241   80:31880/TCP                 3m41s
@@ -234,7 +300,7 @@ ingress-nginx   ingress-nginx-controller             LoadBalancer   10.102.143.1
 ingress-nginx   ingress-nginx-controller-admission   ClusterIP      10.110.81.97     <none>           443/TCP                      13m
 kube-system     kube-dns                             ClusterIP      10.96.0.10       <none>           53/UDP,53/TCP,9153/TCP       23m
 kube-system     metrics-server                       ClusterIP      10.107.154.234   <none>           443/TCP                      13m
-```
+</pre>
 35. There is also a `ingress.yaml` manifest that will deploy an `ingressClass` and a *ingress resource*
 36. However, a `Deployment` and a `Service` is missing, waiting to be created.
 
