@@ -21,6 +21,8 @@
 
 This guide is formatted so that you can copy and paste all commands directly from the guide and press ENTER to execute them in your shell.  Please note that there are a couple of steps towards the end of this guide where you will need to compose several commands from output that is exclusive to YOUR kubernetes cluster, so read the instructions on those steps carefully.<br>
 
+**NOTE:**  Each copyable command is in it's own gray highlight, there are no double commands, nor do we use commands with \ continuations.<br>
+
 ## Preparing your System
 <br>
 
@@ -85,18 +87,16 @@ uid=1000(ubuntu) gid=1000(ubuntu) groups=1000(ubuntu),4(adm),20(dialout),24(cdro
 14. Wait until the script finishes.
 <br>
 
-**WARNING:**  Do **NOT** at this time run the suggested `lxc launch distro:version` command. 
+**WARNING:**  Do **NOT** at this time run the suggested `lxc launch distro:version` command that is shown on the screen. 
 <br>
-<br>
+
 ## Initializing your cluster nodes
 
 First, you should understand that the `lxc` command is your key to sending commands to the LXD container, which holds the nodes you just created.  The `lxc` command "drop ships" or delivers commands into the LXD container, (and even into nodes!), instead of running those commands on your host system's command line.
 
-In this section, You will use the `lxc` command to send commands to your container, aka `lxc launch`, `lxc ls` and `lxc start`, all of which are executed at the __container__ level.
+In this section, You will use the `lxc` command to send commands to begin building your environment, aka `lxc launch`, `lxc ls` and `lxc start`, all of which are executed at the __container__ level.
 
 The instructions below will create the control plane node named **lxd-ctrlp-1**, and 2 worker nodes named **lxd-wrkr-1** and **lxd-wrkr-2**.  They will not be a functional cluster yet, just a set of nodes.
-
-**NOTE:**  <br><br>
 
 15. Initialize your control plane node
     ```
@@ -120,7 +120,7 @@ The instructions below will create the control plane node named **lxd-ctrlp-1**,
     ```
     lxc start --all
     ```
-<br>**Note:**  If you want to see if your nodes are running, type `watch lxc ls` again.<br>
+<br>**Note:**  If you want to see if your nodes are running, type `watch lxc ls` again, and use `Ctrl-c` to exit.<br>
 <br>
 ## Initializing the Control Plane Node
 <br>
@@ -177,7 +177,7 @@ The connection to the server localhost:8080 was refused - did you specify the ri
 </pre>
 This error is caused by the right configuration files not being present on the local host, which this next section addresses.
 
-24. Pull the `/etc/kubernetes/admin.conf` from within the **lxd-ctrlp-1** node into your local `~/.kube` directory with the following command:
+24. First create the `~/.kube` directory and then pull the `/etc/kubernetes/admin.conf` from within the **lxd-ctrlp-1** node into your local `~/.kube` directory with the following commands:
     ```
     mkdir ~/.kube
     ```
@@ -210,11 +210,11 @@ This error is caused by the right configuration files not being present on the l
 27. Now access your cluster with either the actual `kubectl get nodes` command, or use the aliased `k get no` short command.
 
     ```
-    k get no      
+    kubectl get nodes   
     ```
     OR
     ```
-    kubectl get nodes
+    k get no   
     ```
 <br>
 
@@ -226,9 +226,9 @@ lxd-ctrlp-1   <b>NotReady</b>   control-plane,master   2m55s   v1.23.2
 lxd-wrker-1   <b>NotReady</b>   <none>                 15s     v1.23.2
 lxd-wrker-2   <b>NotReady</b>   <none>                 5s      v1.23.2
 </pre>
-
+28. All your nodes are not ready, because we have yet to install a CNI plugin, which we'll do next.
 ## Install the Calico Container Network Interface Plugins
-28. All your nodes are not ready, because we have yet to install a CNI plugin.
+
 29. Install `Calico` so it supports Network Policy 
     ```
     k apply -f https://docs.projectcalico.org/manifests/calico.yaml
@@ -314,7 +314,7 @@ kube-system     metrics-server                       ClusterIP      10.107.154.2
     $ htop
     ```
 
-### Kubernetes with KIND
+## Kubernetes with KIND
 
 1. `cd ../kind`
 2. Activate `kind` auto-completion
